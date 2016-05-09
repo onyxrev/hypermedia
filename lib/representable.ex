@@ -62,6 +62,21 @@ defmodule Hypermedia.Representable do
     end
   end
 
+  defmacro embedded_property(name, presenter) do
+    attribute = {:embedded_property, name}
+
+    quote do
+      @attributes unquote(attribute)
+
+      def unquote(method_name(attribute))(model) do
+        case Map.get(model, unquote(name), nil) do
+          nil -> nil
+          value -> Hypermedia.Representable.to_map(value, unquote(presenter))
+        end
+      end
+    end
+  end
+
   @doc ~S"""
   Defines a link on the representer
 
@@ -131,6 +146,7 @@ defmodule Hypermedia.Representable do
   def method_name({type, name}), do: method_name(type, name)
   def method_name(:link, name), do: String.to_atom("__link__#{name}")
   def method_name(:property, name), do: String.to_atom("#{name}")
+  def method_name(:embedded_property, name), do: String.to_atom("#{name}")
 
   @doc ~S"""
   Adds a link to a map
@@ -148,6 +164,11 @@ defmodule Hypermedia.Representable do
     uri = Util.uri_join(base, href)
     links = Map.put(Map.get(map, "_links", %{}), to_string(link), %{value | "href" => uri})
     Map.put(map, "_links", links)
+  end
+
+  def add_embed(map, embed, value) do
+    embeds = Map.put(Map.get(map, "_embedded", %{}), to_string(embed), value)
+    Map.put(map, "_embedded", embeds)
   end
 
   @doc ~S"""
@@ -173,4 +194,5 @@ defmodule Hypermedia.Representable do
   defp process_attribute(map, _, nil), do: map
   defp process_attribute(map, {:link, key}, value), do: add_link(map, key, value)
   defp process_attribute(map, {:property, key}, value), do: Map.put(map, to_string(key), value)
+  defp process_attribute(map, {:embedded_property, key}, value), do: add_embed(map, key, value)
 end
